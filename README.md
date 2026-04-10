@@ -68,3 +68,91 @@ Target structure for the Sevam migration is documented in [docs/architecture/sev
 ```bash
 ./gradlew build
 ```
+
+## Local Setup For Contributors
+
+Use this checklist before you start development.
+
+### 1. Install Required Tools
+
+- Git (latest stable)
+- Android Studio (latest stable, with Android SDK tools)
+- JDK 17 (required by this project)
+- Android SDK Platform 35
+- Android SDK Build-Tools 35.x
+- Android SDK Platform-Tools (adb)
+
+Optional but recommended:
+
+- Android Emulator with a recent Pixel image (API 34 or 35)
+
+### 2. Clone The Repository
+
+```bash
+git clone <your-repo-url>
+cd sevamandroid
+```
+
+### 3. Verify Java And Android Tooling
+
+```bash
+java -version
+./gradlew --version
+adb version
+```
+
+You should see Java 17 and Gradle running successfully.
+
+### 4. Open In Android Studio
+
+- Open the repository root folder.
+- Let Gradle sync finish.
+- If prompted, use Gradle JDK 17.
+
+### 5. Configure Local Properties
+
+Create or update local.properties in the project root if needed:
+
+```properties
+sdk.dir=/Users/<your-username>/Library/Android/sdk
+```
+
+Do not commit local.properties.
+
+### 6. Configure Supabase For Local Development
+
+Current defaults are empty in app BuildConfig, so app features that need backend keys should be configured per developer machine.
+
+Minimum values to set before backend-integrated testing:
+
+- SUPABASE_URL
+- SUPABASE_ANON_KEY
+- SUPABASE_SCHEMA (default: public)
+- SUPABASE_WORKER_LOCATIONS_TABLE (default: worker_locations)
+
+Recommended approach:
+
+- Keep real secrets out of git.
+- Use local-only Gradle properties or environment variables and map them in app/build.gradle.kts.
+
+### 7. First Build
+
+```bash
+./gradlew :app:assembleDebug
+```
+
+### 8. Run Tests
+
+```bash
+./gradlew test
+./gradlew connectedDebugAndroidTest
+```
+
+Note: connectedDebugAndroidTest requires a running emulator or connected device.
+
+### 9. Common Troubleshooting
+
+- Gradle sync fails: confirm JDK 17 and SDK 35 are installed.
+- ADB not found: install Android Platform-Tools and ensure adb is on PATH.
+- Build cache issues: run ./gradlew clean and re-sync.
+- Dependency resolution issues: check internet access and Gradle proxy settings.
