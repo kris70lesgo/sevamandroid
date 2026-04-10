@@ -10,10 +10,12 @@ import io.github.jan.supabase.realtime.channel
 import io.github.jan.supabase.realtime.postgresChangeFlow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.mapNotNull
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.doubleOrNull
-import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
 
 interface SevamRealtimeClient {
     fun trackWorkerLocation(jobId: String): Flow<WorkerLocationUpdate>
@@ -30,27 +32,44 @@ data class SupabaseRealtimeConfig(
 data class WorkerLocationUpdate(
     val jobId: String,
     val workerId: String,
-    val latitude: Double,
-    val longitude: Double,
-    val timestampIso: String,
+    val latitude: Double?,
+    val longitude: Double?,
+    val timestampIso: String?,
+    val eventType: WorkerLocationEventType,
 )
 
-data class SupabaseWorkerLocationPayload(
-    val jobId: String,
-    val workerId: String,
-    val latitude: Double,
-    val longitude: Double,
-    val updatedAtIso: String,
+enum class WorkerLocationEventType {
+    INSERT,
+    UPDATE,
+    DELETE,
+}
+
+@Serializable
+data class SupabaseWorkerLocationRecord(
+    @SerialName("job_id")
+    val jobId: String? = null,
+    @SerialName("worker_id")
+    val workerId: String? = null,
+    @SerialName("latitude")
+    val latitude: Double? = null,
+    @SerialName("longitude")
+    val longitude: Double? = null,
+    @SerialName("updated_at")
+    val updatedAtIso: String? = null,
 )
 
 object SupabaseRealtimeMapper {
-    fun toDomain(payload: SupabaseWorkerLocationPayload): WorkerLocationUpdate {
+    fun toDomain(
+        payload: SupabaseWorkerLocationRecord,
+        eventType: WorkerLocationEventType,
+    ): WorkerLocationUpdate {
         return WorkerLocationUpdate(
-            jobId = payload.jobId,
-            workerId = payload.workerId,
+            jobId = payload.jobId.orEmpty(),
+            workerId = payload.workerId.orEmpty(),
             latitude = payload.latitude,
             longitude = payload.longitude,
             timestampIso = payload.updatedAtIso,
+            eventType = eventType,
         )
     }
 }
@@ -58,6 +77,12 @@ object SupabaseRealtimeMapper {
 class SupabaseRealtimeClient(
     private val config: SupabaseRealtimeConfig,
 ) : SevamRealtimeClient {
+
+    private val json = Json {
+        ignoreUnknownKeys = true
+        explicitNulls = false
+        coerceInputValues = true
+    }
 
     private val supabaseClient: SupabaseClient by lazy {
         createSupabaseClient(
@@ -78,27 +103,40 @@ class SupabaseRealtimeClient(
 
         val channel = supabaseClient.channel(channelNameForJob(jobId))
 
-        return channel
+        val insertFlow = channel
             .postgresChangeFlow<PostgresAction.Insert>(schema = config.schema) {
                 table = config.workerLocationsTable
             }
-            .mapNotNull { action -> parsePayload(action.record) }
+            .mapNotNull { action -> parsePayload(action.record.toString(), WorkerLocationEventType.INSERT) }
+
+        val updateFlow = channel
+            .postgresChangeFlow<PostgresAction.Update>(schema = config.schema) {
+                table = config.workerLocationsTable
+            }
+            .mapNotNull { action -> parsePayload(action.record.toString(), WorkerLocationEventType.UPDATE) }
+
+        val deleteFlow = channel
+            .postgresChangeFlow<PostgresAction.Delete>(schema = config.schema) {
+                table = config.workerLocationsTable
+            }
+            .mapNotNull { action -> parsePayload(action.oldRecord.toString(), WorkerLocationEventType.DELETE) }
+
+        return merge(insertFlow, updateFlow, deleteFlow)
             .filter { update -> update.jobId == jobId }
     }
 
-    private fun parsePayload(record: JsonObject): WorkerLocationUpdate? {
-        val jobId = record["job_id"]?.jsonPrimitive?.content ?: return null
-        val workerId = record["worker_id"]?.jsonPrimitive?.content ?: return null
-        val latitude = record["latitude"]?.jsonPrimitive?.doubleOrNull ?: return null
-        val longitude = record["longitude"]?.jsonPrimitive?.doubleOrNull ?: return null
-        val timestamp = record["updated_at"]?.jsonPrimitive?.content ?: return null
+    private fun parsePayload(
+        payloadJson: String,
+        eventType: WorkerLocationEventType,
+    ): WorkerLocationUpdate? {
+        val payload = runCatching {
+            json.decodeFromString<SupabaseWorkerLocationRecord>(payloadJson)
+        }.getOrNull() ?: return null
 
-        return WorkerLocationUpdate(
-            jobId = jobId,
-            workerId = workerId,
-            latitude = latitude,
-            longitude = longitude,
-            timestampIso = timestamp,
-        )
+        if (payload.jobId.isNullOrBlank() || payload.workerId.isNullOrBlank()) {
+            return null
+        }
+
+        return SupabaseRealtimeMapper.toDomain(payload, eventType)
     }
 }

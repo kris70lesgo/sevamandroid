@@ -22,6 +22,19 @@ plugins {
     alias(libs.plugins.compose.compiler)
 }
 
+fun String.asBuildConfigString(): String {
+    val escaped = replace("\\", "\\\\").replace("\"", "\\\"")
+    return "\"$escaped\""
+}
+
+fun org.gradle.api.Project.resolveLocalConfig(vararg keys: String, default: String = ""): String {
+    for (key in keys) {
+        providers.gradleProperty(key).orNull?.let { return it }
+        providers.environmentVariable(key).orNull?.let { return it }
+    }
+    return default
+}
+
 android {
     namespace = "com.sevam.customer"
     compileSdk = libs.versions.compileSdk.get().toInt()
@@ -32,10 +45,26 @@ android {
         targetSdk = libs.versions.targetSdk.get().toInt()
         versionCode = 1
         versionName = "1.0"
-        buildConfigField("String", "SUPABASE_URL", "\"\"")
-        buildConfigField("String", "SUPABASE_ANON_KEY", "\"\"")
-        buildConfigField("String", "SUPABASE_SCHEMA", "\"public\"")
-        buildConfigField("String", "SUPABASE_WORKER_LOCATIONS_TABLE", "\"worker_locations\"")
+        buildConfigField(
+            "String",
+            "SUPABASE_URL",
+            project.resolveLocalConfig("SUPABASE_URL", default = "").asBuildConfigString(),
+        )
+        buildConfigField(
+            "String",
+            "SUPABASE_ANON_KEY",
+            project.resolveLocalConfig("SUPABASE_ANON_KEY", default = "").asBuildConfigString(),
+        )
+        buildConfigField(
+            "String",
+            "SUPABASE_SCHEMA",
+            project.resolveLocalConfig("SUPABASE_SCHEMA", default = "public").asBuildConfigString(),
+        )
+        buildConfigField(
+            "String",
+            "SUPABASE_WORKER_LOCATIONS_TABLE",
+            project.resolveLocalConfig("SUPABASE_WORKER_LOCATIONS_TABLE", default = "worker_locations").asBuildConfigString(),
+        )
 
         testInstrumentationRunner = "com.sevam.customer.CustomTestRunner"
 
@@ -50,6 +79,16 @@ android {
         getByName("debug") {
             isMinifyEnabled = false
             isTestCoverageEnabled = true
+            buildConfigField(
+                "String",
+                "SUPABASE_URL",
+                project.resolveLocalConfig("SUPABASE_URL_DEBUG", "SUPABASE_URL", default = "").asBuildConfigString(),
+            )
+            buildConfigField(
+                "String",
+                "SUPABASE_ANON_KEY",
+                project.resolveLocalConfig("SUPABASE_ANON_KEY_DEBUG", "SUPABASE_ANON_KEY", default = "").asBuildConfigString(),
+            )
             proguardFiles(getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro")
             testProguardFiles(getDefaultProguardFile("proguard-android.txt"), "proguardTest-rules.pro")
         }
@@ -57,6 +96,16 @@ android {
         getByName("release") {
             isMinifyEnabled = true
             isShrinkResources = true
+            buildConfigField(
+                "String",
+                "SUPABASE_URL",
+                project.resolveLocalConfig("SUPABASE_URL_RELEASE", "SUPABASE_URL", default = "").asBuildConfigString(),
+            )
+            buildConfigField(
+                "String",
+                "SUPABASE_ANON_KEY",
+                project.resolveLocalConfig("SUPABASE_ANON_KEY_RELEASE", "SUPABASE_ANON_KEY", default = "").asBuildConfigString(),
+            )
             proguardFiles(getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro")
             testProguardFiles(getDefaultProguardFile("proguard-android.txt"), "proguardTest-rules.pro")
         }

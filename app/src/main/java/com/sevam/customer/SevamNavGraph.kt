@@ -40,6 +40,10 @@ import com.sevam.customer.statistics.StatisticsScreen
 import com.sevam.customer.taskdetail.TaskDetailScreen
 import com.sevam.customer.tasks.TasksScreen
 import com.sevam.customer.util.AppModalDrawer
+import com.sevam.features.auth.api.AuthFeatureRoutes
+import com.sevam.features.auth.navigation.authNavGraph
+import com.sevam.features.home.api.HomeFeatureRoutes
+import com.sevam.features.home.navigation.homeNavGraph
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -49,7 +53,7 @@ fun SevamNavGraph(
     navController: NavHostController = rememberNavController(),
     coroutineScope: CoroutineScope = rememberCoroutineScope(),
     drawerState: DrawerState = rememberDrawerState(initialValue = DrawerValue.Closed),
-    startDestination: String = SevamDestinations.TASKS_ROUTE,
+    startDestination: String = AuthFeatureRoutes.ROOT,
     navActions: SevamNavigationActions = remember(navController) {
         SevamNavigationActions(navController)
     }
@@ -62,6 +66,25 @@ fun SevamNavGraph(
         startDestination = startDestination,
         modifier = modifier
     ) {
+        authNavGraph(
+            onLoginSuccess = {
+                navController.navigate(HomeFeatureRoutes.ROOT) {
+                    popUpTo(AuthFeatureRoutes.ROOT) {
+                        inclusive = true
+                    }
+                }
+            },
+        )
+
+        homeNavGraph(
+            onOpenBookingForm = {
+                navController.navigate(HomeFeatureRoutes.BOOKING_FORM)
+            },
+            onOpenLegacyTasks = {
+                navActions.navigateToTasks()
+            },
+        )
+
         composable(
             SevamDestinations.TASKS_ROUTE,
             arguments = listOf(
