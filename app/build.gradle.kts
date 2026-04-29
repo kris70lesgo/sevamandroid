@@ -165,19 +165,26 @@ dependencies {
 
     // Sevam modules
     implementation(project(":core:common"))
+    implementation(project(":core:location"))
     implementation(project(":core:network"))
+    implementation(project(":core:payments"))
+    implementation(project(":core:notifications"))
     implementation(project(":core:security"))
     implementation(project(":core:ui"))
     implementation(project(":core:realtime"))
     implementation(project(":features:auth"))
     implementation(project(":features:home"))
+    implementation(project(":features:services"))
+    implementation(project(":features:cart"))
     implementation(project(":features:bookings"))
     implementation(project(":features:tracking"))
     implementation(project(":features:payments"))
     implementation(project(":features:profile"))
+    implementation(project(":features:notifications"))
 
     // App dependencies
     implementation(libs.androidx.annotation)
+    implementation(libs.androidx.core.ktx)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.timber)
     implementation(libs.androidx.test.espresso.idling.resources)

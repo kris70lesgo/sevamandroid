@@ -20,3 +20,8 @@ android {
         jvmTarget = "17"
     }
 }
+
+dependencies {
+    implementation(project(":core:common"))
+    implementation(libs.kotlinx.coroutines.android)
+}

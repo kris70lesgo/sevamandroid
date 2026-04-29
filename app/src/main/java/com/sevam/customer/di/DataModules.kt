@@ -60,7 +60,7 @@ object DatabaseModule {
         return Room.databaseBuilder(
             context.applicationContext,
             SevamDatabase::class.java,
-            "Tasks.db"
+            "SevamCustomer.db"
         ).build()
     }
 
