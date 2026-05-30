@@ -30,8 +30,6 @@ The app reads these from Gradle properties or environment variables:
 
 - `SUPABASE_URL`
 - `SUPABASE_ANON_KEY`
-- `SUPABASE_SCHEMA`
-- `SUPABASE_WORKER_LOCATIONS_TABLE`
 
 ## Next verification steps
 

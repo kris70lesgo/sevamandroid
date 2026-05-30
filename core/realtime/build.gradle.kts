@@ -29,6 +29,6 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.supabase.kt)
     implementation(libs.supabase.auth.kt)
-    implementation(libs.supabase.postgrest.kt)
     implementation(libs.supabase.realtime.kt)
+    implementation(libs.ktor.client.android)
 }

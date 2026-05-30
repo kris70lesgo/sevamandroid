@@ -38,8 +38,12 @@ import com.sevam.core.ui.SevamSecondaryButton
 @Composable
 fun LoginScreen(
     phoneNumber: String,
+    errorMessage: String?,
+    isSubmitting: Boolean,
+    showDebugBypass: Boolean,
     onPhoneNumberChange: (String) -> Unit,
     onContinue: () -> Unit,
+    onDebugContinue: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -94,11 +98,27 @@ fun LoginScreen(
                         },
                         shape = RoundedCornerShape(18.dp),
                     )
+                    if (!errorMessage.isNullOrBlank()) {
+                        Text(
+                            text = errorMessage,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
                     SevamPrimaryButton(
-                        text = "Send OTP",
+                        text = if (isSubmitting) "Sending OTP..." else "Send OTP",
+                        enabled = !isSubmitting,
                         modifier = Modifier.fillMaxWidth(),
                         onClick = onContinue,
                     )
+                    if (showDebugBypass) {
+                        SevamSecondaryButton(
+                            text = "Enter App in Debug",
+                            enabled = !isSubmitting,
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = onDebugContinue,
+                        )
+                    }
                 }
             }
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -119,8 +139,12 @@ fun LoginScreen(
 fun VerifyOtpScreen(
     phoneNumber: String,
     otp: String,
+    errorMessage: String?,
+    isSubmitting: Boolean,
+    showDebugBypass: Boolean,
     onOtpChange: (String) -> Unit,
     onVerified: () -> Unit,
+    onDebugContinue: () -> Unit,
     onBack: () -> Unit,
 ) {
     Column(
@@ -136,7 +160,7 @@ fun VerifyOtpScreen(
                 fontWeight = FontWeight.Bold,
             )
             Text(
-                text = "We sent a 4-digit code to $phoneNumber. Enter it to continue to your account.",
+                text = "We sent a verification code to $phoneNumber. Enter it to continue to your account.",
                 style = MaterialTheme.typography.bodyLarge,
                 color = SevamColors.TextSecondary,
             )
@@ -145,25 +169,42 @@ fun VerifyOtpScreen(
                 onValueChange = onOtpChange,
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text("OTP") },
-                placeholder = { Text("1234") },
+                placeholder = { Text("123456") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 shape = RoundedCornerShape(18.dp),
             )
+            if (!errorMessage.isNullOrBlank()) {
+                Text(
+                    text = errorMessage,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 SevamSecondaryButton(
                     text = "Back",
+                    enabled = !isSubmitting,
                     modifier = Modifier.weight(1f),
                     onClick = onBack,
                 )
                 SevamPrimaryButton(
-                    text = "Verify",
+                    text = if (isSubmitting) "Verifying..." else "Verify",
+                    enabled = !isSubmitting,
                     modifier = Modifier.weight(1f),
                     onClick = onVerified,
                 )
             }
+            if (showDebugBypass) {
+                SevamSecondaryButton(
+                    text = "Continue in Debug",
+                    enabled = !isSubmitting,
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = onDebugContinue,
+                )
+            }
         }
         Text(
-            text = "Using demo auth for now. Hook request OTP and verify OTP APIs into this flow when backend is ready.",
+            text = "Use the same phone number that can receive the SMS OTP. The app will only continue after Supabase confirms the request.",
             style = MaterialTheme.typography.bodySmall,
             color = SevamColors.TextSecondary,
         )

@@ -37,6 +37,11 @@ data class Address(
     val line1: String,
     val line2: String,
     val city: String,
+    val state: String? = null,
+    val pincode: String? = null,
+    val landmark: String? = null,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
     val isDefault: Boolean = false,
 )
 

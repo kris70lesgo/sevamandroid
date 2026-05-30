@@ -33,6 +33,9 @@ import com.sevam.core.ui.SevamSecondaryButton
 @Composable
 fun TrackingScreen(
     booking: Booking,
+    trackingSummary: String?,
+    trackingError: String?,
+    isTrackingActive: Boolean,
     onCallWorker: () -> Unit,
     onContactSupport: () -> Unit,
 ) {
@@ -70,9 +73,15 @@ fun TrackingScreen(
                         contentAlignment = Alignment.Center,
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("Mapbox tracking surface ready", color = Color.White, fontWeight = FontWeight.SemiBold)
                             Text(
-                                "Add your Mapbox access token and realtime coordinates to render the live map here.",
+                                if (isTrackingActive) "Listening for live worker updates" else "Tracking available when a live session exists",
+                                color = Color.White,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                trackingSummary
+                                    ?: trackingError
+                                    ?: "Mapbox rendering still needs wiring, but worker location now targets Supabase broadcast updates instead of a public tracking table.",
                                 color = Color.White.copy(alpha = 0.82f),
                                 style = MaterialTheme.typography.bodyMedium,
                                 modifier = Modifier.padding(horizontal = 24.dp),

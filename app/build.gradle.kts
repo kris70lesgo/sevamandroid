@@ -1,3 +1,5 @@
+import java.util.Properties
+
 /*
  * Copyright 2020 The Android Open Source Project
  *
@@ -28,9 +30,18 @@ fun String.asBuildConfigString(): String {
 }
 
 fun org.gradle.api.Project.resolveLocalConfig(vararg keys: String, default: String = ""): String {
+    val localProperties = Properties()
+    val localPropertiesFile = rootProject.file("local.properties")
+    if (localPropertiesFile.isFile) {
+        localPropertiesFile.inputStream().use { input ->
+            localProperties.load(input)
+        }
+    }
     for (key in keys) {
         providers.gradleProperty(key).orNull?.let { return it }
         providers.environmentVariable(key).orNull?.let { return it }
+        val localValue = localProperties.getProperty(key)
+        if (!localValue.isNullOrBlank()) return localValue
     }
     return default
 }
@@ -48,22 +59,17 @@ android {
         buildConfigField(
             "String",
             "SUPABASE_URL",
-            project.resolveLocalConfig("SUPABASE_URL", default = "").asBuildConfigString(),
+            project.resolveLocalConfig("SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_URL", default = "").asBuildConfigString(),
         )
         buildConfigField(
             "String",
             "SUPABASE_ANON_KEY",
-            project.resolveLocalConfig("SUPABASE_ANON_KEY", default = "").asBuildConfigString(),
+            project.resolveLocalConfig("SUPABASE_ANON_KEY", "NEXT_PUBLIC_SUPABASE_ANON_KEY", default = "").asBuildConfigString(),
         )
         buildConfigField(
             "String",
-            "SUPABASE_SCHEMA",
-            project.resolveLocalConfig("SUPABASE_SCHEMA", default = "public").asBuildConfigString(),
-        )
-        buildConfigField(
-            "String",
-            "SUPABASE_WORKER_LOCATIONS_TABLE",
-            project.resolveLocalConfig("SUPABASE_WORKER_LOCATIONS_TABLE", default = "worker_locations").asBuildConfigString(),
+            "SEVAM_API_BASE_URL",
+            project.resolveLocalConfig("SEVAM_API_BASE_URL", "SEVAM_WEB_BASE_URL", "NEXT_PUBLIC_APP_URL", default = "").asBuildConfigString(),
         )
 
         testInstrumentationRunner = "com.sevam.customer.CustomTestRunner"
@@ -82,12 +88,12 @@ android {
             buildConfigField(
                 "String",
                 "SUPABASE_URL",
-                project.resolveLocalConfig("SUPABASE_URL_DEBUG", "SUPABASE_URL", default = "").asBuildConfigString(),
+                project.resolveLocalConfig("SUPABASE_URL_DEBUG", "SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_URL", default = "").asBuildConfigString(),
             )
             buildConfigField(
                 "String",
                 "SUPABASE_ANON_KEY",
-                project.resolveLocalConfig("SUPABASE_ANON_KEY_DEBUG", "SUPABASE_ANON_KEY", default = "").asBuildConfigString(),
+                project.resolveLocalConfig("SUPABASE_ANON_KEY_DEBUG", "SUPABASE_ANON_KEY", "NEXT_PUBLIC_SUPABASE_ANON_KEY", default = "").asBuildConfigString(),
             )
             proguardFiles(getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro")
             testProguardFiles(getDefaultProguardFile("proguard-android.txt"), "proguardTest-rules.pro")
@@ -99,12 +105,12 @@ android {
             buildConfigField(
                 "String",
                 "SUPABASE_URL",
-                project.resolveLocalConfig("SUPABASE_URL_RELEASE", "SUPABASE_URL", default = "").asBuildConfigString(),
+                project.resolveLocalConfig("SUPABASE_URL_RELEASE", "SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_URL", default = "").asBuildConfigString(),
             )
             buildConfigField(
                 "String",
                 "SUPABASE_ANON_KEY",
-                project.resolveLocalConfig("SUPABASE_ANON_KEY_RELEASE", "SUPABASE_ANON_KEY", default = "").asBuildConfigString(),
+                project.resolveLocalConfig("SUPABASE_ANON_KEY_RELEASE", "SUPABASE_ANON_KEY", "NEXT_PUBLIC_SUPABASE_ANON_KEY", default = "").asBuildConfigString(),
             )
             proguardFiles(getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro")
             testProguardFiles(getDefaultProguardFile("proguard-android.txt"), "proguardTest-rules.pro")
@@ -152,7 +158,6 @@ android {
     tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
         kotlinOptions {
             freeCompilerArgs += "-opt-in=kotlin.RequiresOptIn"
-            freeCompilerArgs += "-opt-in=kotlin.Experimental"
         }
     }
 }
@@ -195,6 +200,14 @@ dependencies {
     ksp(libs.room.compiler)
     implementation(libs.androidx.lifecycle.runtimeCompose)
     implementation(libs.androidx.lifecycle.viewModelCompose)
+    implementation(libs.kotlinx.serialization.json)
+    implementation(platform(libs.supabase.bom))
+    implementation(libs.supabase.kt)
+    implementation(libs.supabase.auth.kt)
+    implementation(libs.ktor.client.android)
+    implementation("com.squareup.okhttp3:okhttp:4.10.0")
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")
+    implementation("com.jakewharton.retrofit:retrofit2-kotlinx-serialization-converter:0.8.0")
 
     // Hilt
     implementation(libs.hilt.android.core)

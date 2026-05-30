@@ -20,7 +20,6 @@ import com.sevam.core.common.model.Address
 import com.sevam.core.common.model.CartEntry
 import com.sevam.core.common.model.CartTotals
 import com.sevam.core.common.model.PaymentMethod
-import com.sevam.core.common.model.WalletSummary
 import com.sevam.core.ui.SevamCard
 import com.sevam.core.ui.SevamColors
 import com.sevam.core.ui.SevamPrimaryButton
@@ -33,10 +32,11 @@ fun CheckoutScreen(
     selectedAddress: Address?,
     paymentMethods: List<PaymentMethod>,
     selectedPaymentMethodId: String,
-    walletSummary: WalletSummary,
     onPaymentMethodSelected: (String) -> Unit,
     onConfirmPayment: () -> Unit,
 ) {
+    val visiblePaymentMethods = paymentMethods.filterNot { it.id.equals("wallet", ignoreCase = true) }
+
     LazyColumn(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -76,7 +76,7 @@ fun CheckoutScreen(
             SevamCard {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("Payment Method", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-                    paymentMethods.forEach { method ->
+                    visiblePaymentMethods.forEach { method ->
                         Surface(
                             shape = RoundedCornerShape(18.dp),
                             color = if (method.id == selectedPaymentMethodId) SevamColors.OrangeContainer else SevamColors.SurfaceAlt,
@@ -99,17 +99,6 @@ fun CheckoutScreen(
                                     selected = method.id == selectedPaymentMethodId,
                                     onClick = { onPaymentMethodSelected(method.id) },
                                 )
-                            }
-                        }
-                    }
-                    if (!walletSummary.isLive) {
-                        Surface(shape = RoundedCornerShape(18.dp), color = SevamColors.SurfaceAlt) {
-                            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text("Sevam Wallet", fontWeight = FontWeight.SemiBold)
-                                Text("Balance Rs ${walletSummary.balance}", color = SevamColors.TextSecondary)
-                                walletSummary.historyPreview.forEach { line ->
-                                    Text(line, style = MaterialTheme.typography.bodySmall, color = SevamColors.TextSecondary)
-                                }
                             }
                         }
                     }

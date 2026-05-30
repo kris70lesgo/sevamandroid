@@ -8,39 +8,42 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AccessTime
-import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.sevam.core.common.model.ServiceCategory
 import com.sevam.core.common.model.ServiceItem
-import com.sevam.core.ui.SevamBadge
 import com.sevam.core.ui.SevamCard
 import com.sevam.core.ui.SevamColors
 import com.sevam.core.ui.SevamRemoteImage
-import com.sevam.core.ui.SevamSectionHeader
+import kotlin.math.absoluteValue
 
 @Composable
 fun ServicesScreen(
@@ -53,89 +56,162 @@ fun ServicesScreen(
     onServiceClick: (String) -> Unit,
     onAddToCart: (String) -> Unit,
 ) {
-    Column(modifier = Modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            SevamSectionHeader(
-                title = "All Services",
-                subtitle = "${services.size} services available",
-            )
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = onSearchQueryChange,
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("Search services, cleaning, AC repair...") },
-                shape = RoundedCornerShape(18.dp),
-            )
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(2),
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = onSearchQueryChange,
+                    modifier = Modifier.fillMaxWidth(),
+                    leadingIcon = {
+                        Icon(
+                            Icons.Outlined.Search,
+                            contentDescription = null,
+                            tint = SevamColors.TextSecondary,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    },
+                    placeholder = {
+                        Text(
+                            text = "Search services...",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
+                )
+            }
+        }
+        item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(end = 12.dp),
+            ) {
                 items(categories) { category ->
+                    val selected = selectedCategoryId == category.id
                     AssistChip(
                         onClick = { onCategorySelected(category.id) },
-                        label = { Text(category.title) },
+                        label = {
+                            Text(
+                                text = category.title,
+                                style = MaterialTheme.typography.labelLarge,
+                            )
+                        },
                         colors = AssistChipDefaults.assistChipColors(
-                            containerColor = if (selectedCategoryId == category.id) SevamColors.OrangeContainer else MaterialTheme.colorScheme.surface,
-                            labelColor = if (selectedCategoryId == category.id) SevamColors.Orange else MaterialTheme.colorScheme.onSurface,
+                            containerColor = if (selected) SevamColors.OrangeContainer else MaterialTheme.colorScheme.surface,
+                            labelColor = if (selected) SevamColors.Orange else MaterialTheme.colorScheme.onSurface,
                         ),
                         border = BorderStroke(
                             1.dp,
-                            if (selectedCategoryId == category.id) SevamColors.Orange else SevamColors.Border,
+                            if (selected) SevamColors.Orange else SevamColors.Border,
                         ),
                     )
                 }
             }
         }
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(2),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+        items(services, key = { it.id }) { service ->
+            ServiceGridCard(
+                service = service,
+                onClick = { onServiceClick(service.id) },
+                onAddToCart = { onAddToCart(service.id) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun ServiceGridCard(
+    service: ServiceItem,
+    onClick: () -> Unit,
+    onAddToCart: () -> Unit,
+) {
+    SevamCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+    ) {
+        Column(
+            modifier = Modifier.height(218.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp),
         ) {
-            items(services, key = { it.id }) { service ->
-                SevamCard(modifier = Modifier.clickable { onServiceClick(service.id) }) {
-                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Box {
-                                SevamRemoteImage(imageUrl = service.imageUrl, modifier = Modifier.fillMaxWidth().height(150.dp))
-                                service.badge?.let { badge ->
-                                    SevamBadge(text = badge, modifier = Modifier.padding(10.dp))
-                                }
-                                Row(
-                                modifier = Modifier
-                                    .align(Alignment.BottomStart)
-                                    .padding(10.dp)
-                                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.88f), RoundedCornerShape(999.dp))
-                                    .padding(horizontal = 10.dp, vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            ) {
-                                Icon(Icons.Outlined.AccessTime, contentDescription = null, modifier = Modifier.size(14.dp), tint = SevamColors.TextSecondary)
-                                Text(service.durationLabel, style = MaterialTheme.typography.labelMedium)
-                            }
-                        }
-                        Column(modifier = Modifier.padding(horizontal = 14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text(text = service.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                            Text(text = service.description, style = MaterialTheme.typography.bodySmall, color = SevamColors.TextSecondary, maxLines = 2)
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Text("Rs ${service.price}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                                service.originalPrice?.let {
-                                    Text("Rs $it", style = MaterialTheme.typography.bodySmall, color = SevamColors.TextSecondary)
-                                }
-                            }
-                        }
-                        Box(
-                            modifier = Modifier
-                                .padding(14.dp)
-                                .align(Alignment.End)
-                                .background(SevamColors.Orange, CircleShape)
-                                .size(44.dp)
-                                .clickable { onAddToCart(service.id) },
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(Icons.Outlined.Add, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary)
-                        }
+            SevamRemoteImage(
+                imageUrl = service.imageUrl,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(112.dp),
+            )
+            Column(
+                modifier = Modifier.padding(horizontal = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(3.dp),
+            ) {
+                Text(
+                    text = service.name,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    minLines = 2,
+                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Star,
+                        contentDescription = null,
+                        tint = Color(0xFF111827),
+                        modifier = Modifier.size(13.dp),
+                    )
+                    Text(
+                        text = "${service.rating} (${service.reviewCount})",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = SevamColors.TextSecondary,
+                        maxLines = 1,
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.weight(1f))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 10.dp)
+                    .padding(bottom = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "Rs ${service.price}",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Surface(
+                    modifier = Modifier
+                        .height(32.dp)
+                        .fillMaxWidth(0.56f)
+                        .clickable(onClick = onAddToCart),
+                    shape = RoundedCornerShape(11.dp),
+                    color = Color.White,
+                    border = BorderStroke(1.dp, SevamColors.Border),
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = "Add",
+                            color = SevamColors.Orange,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            textAlign = TextAlign.Center,
+                        )
                     }
                 }
             }

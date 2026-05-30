@@ -1,15 +1,16 @@
 package com.sevam.customer
 
+import com.sevam.customer.BuildConfig
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -19,9 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.LocationOn
-import androidx.compose.material.icons.outlined.NotificationsNone
-import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.ShoppingCart
 import androidx.compose.material.icons.outlined.Storefront
 import androidx.compose.material3.Badge
@@ -38,13 +37,17 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -78,6 +81,7 @@ import com.sevam.features.services.api.ServicesFeatureRoutes
 import com.sevam.features.services.presentation.ServicesScreen
 import com.sevam.features.tracking.api.TrackingFeatureRoutes
 import com.sevam.features.tracking.presentation.TrackingScreen
+import kotlinx.coroutines.launch
 
 private const val SEARCH_ROUTE = "search"
 
@@ -90,10 +94,11 @@ private data class BottomNavItem(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SevamNavGraph(
-    viewModel: SevamAppViewModel = viewModel(),
+    viewModel: SevamAppViewModel = hiltViewModel(),
 ) {
     val navController = rememberNavController()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val coroutineScope = rememberCoroutineScope()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val shellRoutes = setOf(
@@ -180,12 +185,10 @@ fun SevamNavGraph(
         topBar = {
             if (showTopBar) {
                 SevamTopBar(
-                    locationLabel = viewModel.selectedAddress?.line2 ?: SevamSampleData.banners.first().locationLabel,
+                    currentRoute = currentRoute,
+                    locationLabel = viewModel.selectedAddress?.line2 ?: uiState.banners.first().locationLabel,
                     cartCount = viewModel.cartCount(),
-                    notificationCount = viewModel.unreadNotificationsCount(),
-                    onOpenSearch = { navController.navigate(SEARCH_ROUTE) },
                     onOpenCart = { navController.navigate(CartFeatureRoutes.ROOT) },
-                    onOpenNotifications = { navController.navigate(NotificationsFeatureRoutes.ROOT) },
                 )
             }
         },
@@ -203,14 +206,25 @@ fun SevamNavGraph(
                         NavigationBarItem(
                             selected = selected,
                             onClick = {
-                                navController.navigate(item.route) {
-                                    launchSingleTop = true
-                                    restoreState = true
-                                    popUpTo(HomeFeatureRoutes.ROOT) { saveState = true }
+                                if (item.route == HomeFeatureRoutes.ROOT) {
+                                    val returnedHome = navController.popBackStack(HomeFeatureRoutes.ROOT, false)
+                                    if (!returnedHome) {
+                                        navController.navigate(HomeFeatureRoutes.ROOT) {
+                                            launchSingleTop = true
+                                        }
+                                    }
+                                } else {
+                                    navController.navigate(item.route) {
+                                        launchSingleTop = true
+                                        restoreState = true
+                                        popUpTo(HomeFeatureRoutes.ROOT) {
+                                            saveState = true
+                                        }
+                                    }
                                 }
                             },
-                            icon = { Icon(item.icon, contentDescription = item.label) },
-                            label = { Text(item.label) },
+                            icon = { Icon(item.icon, contentDescription = item.label, modifier = Modifier.size(20.dp)) },
+                            label = { Text(item.label, style = MaterialTheme.typography.labelSmall) },
                         )
                     }
                 }
@@ -225,36 +239,42 @@ fun SevamNavGraph(
             composable(AuthFeatureRoutes.LOGIN) {
                 LoginScreen(
                     phoneNumber = uiState.phoneNumber,
+                    errorMessage = uiState.authErrorMessage,
+                    isSubmitting = uiState.isRequestingOtp,
+                    showDebugBypass = BuildConfig.DEBUG,
                     onPhoneNumberChange = viewModel::updatePhoneNumber,
                     onContinue = {
-                        viewModel.requestOtp()
-                        navController.navigate(AuthFeatureRoutes.VERIFY_OTP)
+                        viewModel.requestOtp {
+                            navController.navigate(AuthFeatureRoutes.VERIFY_OTP) {
+                                launchSingleTop = true
+                            }
+                        }
                     },
+                    onDebugContinue = viewModel::completeDebugLogin,
                 )
             }
             composable(AuthFeatureRoutes.VERIFY_OTP) {
                 VerifyOtpScreen(
                     phoneNumber = uiState.phoneNumber,
                     otp = uiState.otp,
+                    errorMessage = uiState.authErrorMessage,
+                    isSubmitting = uiState.isVerifyingOtp,
+                    showDebugBypass = BuildConfig.DEBUG,
                     onOtpChange = viewModel::updateOtp,
-                    onVerified = {
-                        viewModel.completeLogin()
-                        navController.navigate(HomeFeatureRoutes.ROOT) {
-                            popUpTo(AuthFeatureRoutes.LOGIN) { inclusive = true }
-                        }
-                    },
+                    onVerified = viewModel::completeLogin,
+                    onDebugContinue = viewModel::completeDebugLogin,
                     onBack = { navController.popBackStack() },
                 )
             }
             composable(HomeFeatureRoutes.ROOT) {
                 HomeScreen(
-                    banner = SevamSampleData.banners.first(),
-                    categories = SevamSampleData.categories,
-                    flashDeals = SevamSampleData.services.take(4),
-                    nearbyServices = SevamSampleData.services.takeLast(4),
+                    banners = uiState.banners,
+                    categories = uiState.categories,
+                    flashDeals = uiState.services.take(4),
+                    nearbyServices = uiState.services.takeLast(4),
                     recentBookings = viewModel.pastBookings(),
                     referralCode = uiState.profile.referralCode,
-                    trustHighlights = SevamSampleData.trustHighlights,
+                    onOpenSearch = { navController.navigate(SEARCH_ROUTE) },
                     onBrowseServices = { navController.navigate(ServicesFeatureRoutes.ROOT) },
                     onViewAllServices = { navController.navigate(ServicesFeatureRoutes.ROOT) },
                     onServiceClick = viewModel::openService,
@@ -270,7 +290,7 @@ fun SevamNavGraph(
             }
             composable(ServicesFeatureRoutes.ROOT) {
                 ServicesScreen(
-                    categories = SevamSampleData.categories,
+                    categories = uiState.categories,
                     services = viewModel.filteredServices,
                     selectedCategoryId = uiState.selectedCategoryId,
                     searchQuery = uiState.searchQuery,
@@ -301,7 +321,6 @@ fun SevamNavGraph(
                 ProfileScreen(
                     profile = uiState.profile,
                     addresses = uiState.addresses,
-                    walletSummary = uiState.walletSummary,
                     paymentMethods = uiState.paymentMethods,
                     selectedSection = uiState.selectedProfileSection,
                     onSectionSelected = viewModel::selectProfileSection,
@@ -337,11 +356,12 @@ fun SevamNavGraph(
                     selectedAddress = viewModel.selectedAddress,
                     paymentMethods = uiState.paymentMethods,
                     selectedPaymentMethodId = uiState.selectedPaymentMethodId,
-                    walletSummary = uiState.walletSummary,
                     onPaymentMethodSelected = viewModel::selectPaymentMethod,
                     onConfirmPayment = {
-                        val outcome = viewModel.confirmPayment()
-                        navController.navigate(PaymentsFeatureRoutes.resultRoute(outcome))
+                        coroutineScope.launch {
+                            val outcome = viewModel.confirmPayment()
+                            navController.navigate(PaymentsFeatureRoutes.resultRoute(outcome))
+                        }
                     },
                 )
             }
@@ -371,7 +391,7 @@ fun SevamNavGraph(
                 SearchScreen(
                     query = uiState.searchQuery,
                     onQueryChange = viewModel::updateSearchQuery,
-                    recentSearches = SevamSampleData.recentSearches.map { it.label },
+                    recentSearches = uiState.recentSearches.map { it.label },
                     services = viewModel.filteredServices,
                     onSuggestionClick = { suggestion ->
                         viewModel.updateSearchQuery(suggestion)
@@ -385,8 +405,14 @@ fun SevamNavGraph(
             ) { entry ->
                 val bookingId = entry.arguments?.getString(TrackingFeatureRoutes.ARG_BOOKING_ID)
                 viewModel.bookingById(bookingId)?.let { booking ->
+                    LaunchedEffect(booking.id) {
+                        viewModel.startTracking(booking.id)
+                    }
                     TrackingScreen(
                         booking = booking,
+                        trackingSummary = viewModel.trackingSummaryFor(booking.id),
+                        trackingError = viewModel.trackingErrorFor(booking.id),
+                        isTrackingActive = viewModel.isTrackingActive(booking.id),
                         onCallWorker = {},
                         onContactSupport = {},
                     )
@@ -416,56 +442,92 @@ private fun handleNotificationNavigation(
 
 @Composable
 private fun SevamTopBar(
+    currentRoute: String?,
     locationLabel: String,
     cartCount: Int,
-    notificationCount: Int,
-    onOpenSearch: () -> Unit,
     onOpenCart: () -> Unit,
-    onOpenNotifications: () -> Unit,
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+            .statusBarsPadding()
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Outlined.LocationOn, contentDescription = null, tint = SevamColors.Orange)
-                Column {
-                    Text("Sevam", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    Text(locationLabel, style = MaterialTheme.typography.bodySmall, color = SevamColors.TextSecondary)
-                }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconBadgeButton(icon = Icons.Outlined.NotificationsNone, count = notificationCount, onClick = onOpenNotifications)
-                IconBadgeButton(icon = Icons.Outlined.ShoppingCart, count = cartCount, onClick = onOpenCart)
-            }
-        }
         Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onOpenSearch),
-            shape = RoundedCornerShape(18.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant,
+            shape = RoundedCornerShape(24.dp),
+            color = Color(0xFFF7FAFF),
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.Outlined.Search, contentDescription = null, tint = SevamColors.TextSecondary)
-                Spacer(Modifier.width(10.dp))
+                when (currentRoute) {
+                    HomeFeatureRoutes.ROOT -> HomeTopBarTitle(locationLabel = locationLabel)
+                    ServicesFeatureRoutes.ROOT -> CompactTopBarTitle(title = "Services")
+                    BookingsFeatureRoutes.ROOT -> CompactTopBarTitle(title = "My Bookings")
+                    ProfileFeatureRoutes.ROOT -> CompactTopBarTitle(title = "Profile")
+                    else -> CompactTopBarTitle(title = "Sevam")
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    IconBadgeButton(icon = Icons.Outlined.ShoppingCart, count = cartCount, onClick = onOpenCart)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HomeTopBarTitle(locationLabel: String) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Surface(shape = CircleShape, color = SevamColors.Orange) {
+            Text(
+                text = "S",
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleSmall,
+            )
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                text = "Delivering to",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color(0xFF64748B),
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = "Search services (cleaning, AC repair...)",
-                    color = SevamColors.TextSecondary,
+                    text = locationLabel,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.width(180.dp),
+                )
+                Icon(
+                    Icons.Outlined.KeyboardArrowDown,
+                    contentDescription = null,
+                    tint = Color(0xFF1F4E9B),
+                    modifier = Modifier.size(16.dp),
                 )
             }
         }
     }
+}
+
+@Composable
+private fun CompactTopBarTitle(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.titleLarge,
+        fontWeight = FontWeight.SemiBold,
+    )
 }
 
 @Composable
@@ -476,18 +538,20 @@ private fun IconBadgeButton(
 ) {
     Surface(
         shape = CircleShape,
-        color = MaterialTheme.colorScheme.surfaceVariant,
+        color = Color.White,
         modifier = Modifier.clickable(onClick = onClick),
     ) {
         BadgedBox(
             badge = {
                 if (count > 0) {
-                    Badge { Text(count.toString()) }
+                    Badge(containerColor = SevamColors.Orange) {
+                        Text(count.toString(), style = MaterialTheme.typography.labelSmall)
+                    }
                 }
             },
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier.padding(10.dp),
         ) {
-            Icon(icon, contentDescription = null)
+            Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp), tint = Color(0xFF1F4E9B))
         }
     }
 }

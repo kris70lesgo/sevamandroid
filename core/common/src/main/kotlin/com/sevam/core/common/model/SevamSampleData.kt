@@ -252,7 +252,7 @@ object SevamSampleData {
             dateLabel = "Wed, 30 Apr",
             timeLabel = "7:30 AM",
             address = addresses[1],
-            paymentMethod = "Wallet",
+            paymentMethod = "UPI",
             totalAmount = 799,
             bookingReference = "SVM-20814",
             statusLabel = "Scheduled",
@@ -287,13 +287,12 @@ object SevamSampleData {
     val paymentMethods = listOf(
         PaymentMethod("upi", "UPI", "Pay with any UPI app", isDefault = true),
         PaymentMethod("card", "Credit / Debit Card", "Visa ending in 4210"),
-        PaymentMethod("wallet", "Sevam Wallet", "Balance available", isLive = false),
     )
 
     val walletSummary = WalletSummary(
         balance = 1250,
         isLive = false,
-        historyPreview = listOf("Wallet launch pending backend contract", "Top-up and history will appear here"),
+        historyPreview = listOf("Payment history will appear here after backend support lands"),
     )
 
     val userProfile = UserProfile(
