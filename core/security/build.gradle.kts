@@ -20,3 +20,8 @@ android {
         jvmTarget = "17"
     }
 }
+
+dependencies {
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.security.crypto)
+}

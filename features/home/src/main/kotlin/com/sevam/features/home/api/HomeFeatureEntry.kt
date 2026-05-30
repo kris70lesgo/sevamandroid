@@ -6,7 +6,6 @@ interface HomeFeatureEntry {
 
 object HomeFeatureRoutes {
     const val ROOT = "home"
-    const val BOOKING_FORM = "home/booking"
 }
 
 object DefaultHomeFeatureEntry : HomeFeatureEntry {

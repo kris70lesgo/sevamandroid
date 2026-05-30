@@ -32,7 +32,7 @@ class SevamActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            SevamTheme {
+            SevamTheme(darkTheme = false) {
                 SevamNavGraph()
             }
         }

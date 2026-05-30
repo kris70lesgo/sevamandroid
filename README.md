@@ -127,8 +127,6 @@ Minimum values to set before backend-integrated testing:
 
 - SUPABASE_URL
 - SUPABASE_ANON_KEY
-- SUPABASE_SCHEMA (default: public)
-- SUPABASE_WORKER_LOCATIONS_TABLE (default: worker_locations)
 
 Recommended approach:
 

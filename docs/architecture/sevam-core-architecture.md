@@ -51,7 +51,7 @@ sevam-customer-android/
 
 The project direction is Supabase-first instead of Firebase.
 
-- Realtime updates: Supabase Realtime channels.
+- Realtime updates: Supabase Realtime broadcast channels keyed by `job:{jobId}`.
 - Push notification orchestration: Supabase Edge Functions + backend integration.
 - Analytics and crash pipeline: backend/Supabase observability path.
 - Authentication: custom JWT from Sevam backend.

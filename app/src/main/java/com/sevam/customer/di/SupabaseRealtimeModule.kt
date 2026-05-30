@@ -3,6 +3,7 @@ package com.sevam.customer.di
 import com.sevam.core.realtime.SevamRealtimeClient
 import com.sevam.core.realtime.SupabaseRealtimeClient
 import com.sevam.core.realtime.SupabaseRealtimeConfig
+import com.sevam.core.security.SessionStore
 import com.sevam.customer.BuildConfig
 import dagger.Module
 import dagger.Provides
@@ -20,8 +21,6 @@ object SupabaseRealtimeModule {
         return SupabaseRealtimeConfig(
             projectUrl = BuildConfig.SUPABASE_URL,
             anonKey = BuildConfig.SUPABASE_ANON_KEY,
-            schema = BuildConfig.SUPABASE_SCHEMA,
-            workerLocationsTable = BuildConfig.SUPABASE_WORKER_LOCATIONS_TABLE,
         )
     }
 
@@ -29,5 +28,8 @@ object SupabaseRealtimeModule {
     @Singleton
     fun provideSevamRealtimeClient(
         config: SupabaseRealtimeConfig,
-    ): SevamRealtimeClient = SupabaseRealtimeClient(config)
+        sessionStore: SessionStore,
+    ): SevamRealtimeClient = SupabaseRealtimeClient(config) {
+        sessionStore.restore()?.accessToken
+    }
 }
