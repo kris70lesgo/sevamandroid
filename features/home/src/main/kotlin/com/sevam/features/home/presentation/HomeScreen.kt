@@ -2,24 +2,31 @@ package com.sevam.features.home.presentation
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items as rowItems
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Bolt
@@ -27,6 +34,7 @@ import androidx.compose.material.icons.outlined.Brush
 import androidx.compose.material.icons.outlined.Carpenter
 import androidx.compose.material.icons.outlined.CleaningServices
 import androidx.compose.material.icons.outlined.ElectricalServices
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.LocalDining
 import androidx.compose.material.icons.outlined.LocalLaundryService
 import androidx.compose.material.icons.outlined.PestControl
@@ -40,14 +48,23 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextAlign
@@ -60,8 +77,10 @@ import com.sevam.core.common.model.ServiceCategory
 import com.sevam.core.common.model.ServiceItem
 import com.sevam.core.ui.SevamColors
 import com.sevam.core.ui.SevamRemoteImage
+import com.sevam.features.home.R
 import kotlinx.coroutines.delay
 import kotlin.math.absoluteValue
+import kotlin.math.min
 import kotlin.math.roundToInt
 
 private val HomeBlue = Color(0xFF174A9C)
@@ -69,6 +88,72 @@ private val HomeBlueDark = Color(0xFF0D2F68)
 private val HomeBlueSoft = Color(0xFFEAF2FF)
 private val HomeText = Color(0xFF111827)
 private val HomeMuted = Color(0xFF667085)
+private val HomeMajorHeadingFont = FontFamily(
+    Font(R.font.pt_sans_narrow_bold, FontWeight.Bold),
+)
+private val PoppinsRegularFont = FontFamily(
+    Font(R.font.poppins_regular, FontWeight.Normal),
+)
+private val PoppinsSemiBoldFont = FontFamily(
+    Font(R.font.poppins_semibold, FontWeight.SemiBold),
+)
+private val ServiceOfferCards = listOf(
+    ServiceOfferCardData(
+        title = "Bathroom Cleaning",
+        imageRes = R.drawable.card_bathroomclean,
+        discount = "30% OFF",
+        reviews = "38.5k",
+        duration = "45 MINS",
+        price = 25,
+        originalPrice = 150,
+    ),
+    ServiceOfferCardData(
+        title = "Utensils",
+        imageRes = R.drawable.card_dishes,
+        discount = "18% OFF",
+        reviews = "31.3k",
+        duration = "30 MINS",
+        price = 25,
+        originalPrice = 125,
+    ),
+    ServiceOfferCardData(
+        title = "Kitchen Prep",
+        imageRes = R.drawable.card_kitchenprep,
+        discount = "24% OFF",
+        reviews = "5.1k",
+        duration = "40 MINS",
+        price = 25,
+        originalPrice = 125,
+    ),
+    ServiceOfferCardData(
+        title = "Haircut",
+        imageRes = R.drawable.card_haircut,
+        discount = "27% OFF",
+        reviews = "3.8k",
+        duration = "35 MINS",
+        price = 149,
+        originalPrice = 199,
+    ),
+    ServiceOfferCardData(
+        title = "Laundry",
+        imageRes = R.drawable.card_laundry,
+        discount = "22% OFF",
+        reviews = "6.2k",
+        duration = "50 MINS",
+        price = 199,
+        originalPrice = 249,
+    ),
+)
+
+private data class ServiceOfferCardData(
+    val title: String,
+    val imageRes: Int,
+    val discount: String,
+    val reviews: String,
+    val duration: String,
+    val price: Int,
+    val originalPrice: Int,
+)
 
 @Composable
 fun HomeScreen(
@@ -84,154 +169,344 @@ fun HomeScreen(
     onServiceClick: (String) -> Unit,
     onBookNow: (String) -> Unit,
     onRebook: (String) -> Unit,
+    onScrollProgressChanged: (Float) -> Unit = {},
 ) {
-    val heroSlides = remember(banners) {
-        val seeded = if (banners.isNotEmpty()) banners else listOf(
-            PromoBanner(
-                id = "fallback",
-                locationLabel = "Koramangala, Bangalore",
-                title = "Same-Day Service, Guaranteed",
-                subtitle = "Book before noon and get a verified professional at your doorstep today.",
-                primaryAction = "Browse Services",
-                secondaryAction = "View All Services",
-                highlights = listOf("Verified Pros", "4.8+ Rated", "60-min Response"),
-            ),
-        )
-        buildList {
-            addAll(seeded.take(3))
-            if (size < 3) {
-                add(
-                    PromoBanner(
-                        id = "flash-offers",
-                        locationLabel = seeded.first().locationLabel,
-                        title = "Flash Deals Near You",
-                        subtitle = "Discover limited-time savings on cleaning, repairs, and grooming.",
-                        primaryAction = "Explore Deals",
-                        secondaryAction = "Book Again",
-                        highlights = listOf("Up to 50% Off", "Instant Slots", "Live Tracking"),
-                    ),
-                )
+    val listState = rememberLazyListState()
+    val headerCollapseProgress by remember {
+        derivedStateOf {
+            val scrollDistance = if (listState.firstVisibleItemIndex > 0) {
+                360
+            } else {
+                listState.firstVisibleItemScrollOffset
             }
-            if (size < 3) {
-                add(
-                    PromoBanner(
-                        id = "trusted-pros",
-                        locationLabel = seeded.first().locationLabel,
-                        title = "Trusted Pros at Home",
-                        subtitle = "Verified professionals, transparent pricing, and support you can count on.",
-                        primaryAction = "View All Services",
-                        secondaryAction = "Browse Services",
-                        highlights = listOf("Background Checked", "Cashless Payments", "Support 24/7"),
-                    ),
-                )
-            }
-        }.take(3)
+            min(scrollDistance / 360f, 1f)
+        }
+    }
+
+    LaunchedEffect(headerCollapseProgress) {
+        onScrollProgressChanged(headerCollapseProgress)
     }
 
     LazyColumn(
+        state = listState,
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
-        contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 24.dp),
+        contentPadding = PaddingValues(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
         item {
-            HomeSearchCard(onClick = onOpenSearch)
-        }
-        item {
-            HeroBannerCarousel(
-                banners = heroSlides,
-                imageUrl = nearbyServices.firstOrNull()?.imageUrl ?: flashDeals.firstOrNull()?.imageUrl,
-                onBrowseServices = onBrowseServices,
-                onViewAllServices = onViewAllServices,
-            )
-        }
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                HomeSectionHeader(
-                    title = "Categories",
-                    actionLabel = "See all",
-                    onAction = onViewAllServices,
-                )
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    contentPadding = PaddingValues(end = 12.dp),
-                ) {
-                    rowItems(items = categories.filter { it.id != "all" }, key = { it.id }) { category ->
-                        CategoryRailItem(
-                            category = category,
-                            onClick = onViewAllServices,
-                        )
-                    }
+            GreatSaleSection(modifier = Modifier.zIndex(1f))
+            Box(
+                modifier = Modifier
+                    .zIndex(3f)
+                    .fillMaxWidth()
+                    .background(Color.White),
+            ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    HomeSectionHeader(
+                        title = "Services we offer :",
+                        modifier = Modifier
+                            .zIndex(2f)
+                            .padding(start = 20.dp, top = 28.dp, end = 16.dp, bottom = 16.dp),
+                    )
+                    ServicesOfferGrid()
+                    OffersDiscountSection()
+                    Spacer(modifier = Modifier.height(32.dp))
                 }
             }
-        }
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                HomeSectionHeader(
-                    title = "Popular Services",
-                    actionLabel = "View all",
-                    onAction = onViewAllServices,
-                )
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    contentPadding = PaddingValues(end = 12.dp),
-                ) {
-                    rowItems(items = nearbyServices.take(6), key = { it.id }) { service ->
-                        PopularServiceCard(
-                            service = service,
-                            onClick = { onServiceClick(service.id) },
-                            onBookNow = { onBookNow(service.id) },
-                        )
-                    }
-                }
-            }
-        }
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                HomeSectionHeader(
-                    title = "Flash Deals",
-                    subtitle = "Limited-time savings near you",
-                    actionLabel = "View deals",
-                    onAction = onViewAllServices,
-                )
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(end = 12.dp),
-                ) {
-                    rowItems(items = flashDeals.take(4), key = { "deal-${it.id}" }) { service ->
-                        FlashDealCard(
-                            service = service,
-                            onClick = { onServiceClick(service.id) },
-                            onGrabDeal = { onBookNow(service.id) },
-                        )
-                    }
-                }
-            }
-        }
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                HomeSectionHeader(
-                    title = "Book Again",
-                    subtitle = "Your recently booked services",
-                    actionLabel = "View all bookings",
-                    onAction = onViewAllServices,
-                )
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(end = 12.dp)) {
-                    rowItems(items = recentBookings, key = { it.id }) { booking ->
-                        RebookCard(
-                            booking = booking,
-                            onClick = { onServiceClick(booking.service.id) },
-                            onRebook = { onRebook(booking.id) },
-                        )
-                    }
-                }
-            }
-        }
-        item {
-            ReferAndEarnCard(referralCode = referralCode)
         }
     }
+}
+
+@Composable
+private fun GreatSaleSection(
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .aspectRatio(0.84f),
+    ) {
+        Image(
+            painter = painterResource(id = R.drawable.mainbanner),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop,
+        )
+        Row(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .padding(start = 12.dp, end = 12.dp, bottom = 18.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.Bottom,
+        ) {
+            Box(
+                modifier = Modifier
+                    .weight(0.34f)
+                    .aspectRatio(0.51f)
+                    .clip(RoundedCornerShape(10.dp)),
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.long_ban),
+                    contentDescription = "Great sale feature",
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            scaleY = 1.08f
+                        },
+                    contentScale = ContentScale.Crop,
+                )
+            }
+            Column(
+                modifier = Modifier.weight(0.66f),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    SaleTile(imageRes = R.drawable.cook, contentDescription = "Cooking service", modifier = Modifier.weight(1f))
+                    SaleTile(imageRes = R.drawable.hairban, contentDescription = "Hair service", modifier = Modifier.weight(1f))
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    SaleTile(imageRes = R.drawable.elecban, contentDescription = "Electrician service", modifier = Modifier.weight(1f))
+                    SaleTile(imageRes = R.drawable.allban, contentDescription = "All services", modifier = Modifier.weight(1f))
+                }
+            }
+        }
+        CouponScallopBottomEdge(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .offset(y = 12.dp)
+                .zIndex(2f),
+        )
+    }
+}
+
+@Composable
+private fun ServicesOfferGrid() {
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 10.dp, end = 10.dp, bottom = 28.dp),
+    ) {
+        val cardWidth = (maxWidth - 16.dp) / 3
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            ServiceOfferCards.forEach { card ->
+                ServiceCard(
+                    card = card,
+                    modifier = Modifier.width(cardWidth),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ServiceCard(
+    card: ServiceOfferCardData,
+    modifier: Modifier = Modifier,
+) {
+    val cardShape = RoundedCornerShape(16.dp)
+    val imageShape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
+    Surface(
+        modifier = modifier
+            .aspectRatio(0.65f)
+            .shadow(
+                elevation = 1.dp,
+                shape = cardShape,
+                clip = false,
+                ambientColor = Color(0x0F000000),
+                spotColor = Color(0x0D000000),
+            )
+            .clip(cardShape),
+        shape = cardShape,
+        color = Color.White,
+        border = BorderStroke(0.5.dp, Color(0xFFEAEAEA)),
+        tonalElevation = 0.dp,
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(0.52f)
+                        .clip(imageShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Image(
+                        painter = painterResource(id = card.imageRes),
+                        contentDescription = card.title,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(start = 18.dp, top = 24.dp, end = 18.dp, bottom = 16.dp),
+                        contentScale = ContentScale.Fit,
+                    )
+                }
+                Spacer(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(0.5.dp)
+                        .background(Color(0xFFF2F2F2)),
+                )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(0.48f)
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                ) {
+                    Text(
+                        text = card.title,
+                        modifier = Modifier.height(40.dp),
+                        color = Color(0xFF111111),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontFamily = PoppinsSemiBoldFont,
+                        fontSize = 14.sp,
+                        lineHeight = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 2,
+                        overflow = TextOverflow.Clip,
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Row(
+                        modifier = Modifier.height(18.dp),
+                        horizontalArrangement = Arrangement.spacedBy(5.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = "₹${card.price}",
+                            modifier = Modifier.alignByBaseline(),
+                            color = Color(0xFF111111),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontFamily = PoppinsSemiBoldFont,
+                            fontSize = 14.sp,
+                            lineHeight = 16.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                        )
+                        Text(
+                            text = "₹${card.originalPrice}",
+                            modifier = Modifier.alignByBaseline(),
+                            color = Color(0xFFB8B8B8),
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontFamily = PoppinsRegularFont,
+                            fontSize = 11.sp,
+                            lineHeight = 13.sp,
+                            fontWeight = FontWeight.Normal,
+                            textDecoration = TextDecoration.LineThrough,
+                            maxLines = 1,
+                        )
+                    }
+                }
+            }
+            RatingBadge(
+                rating = "4.9",
+                reviews = card.reviews,
+                modifier = Modifier.align(Alignment.TopEnd),
+            )
+        }
+    }
+}
+
+@Composable
+private fun RatingBadge(
+    rating: String,
+    reviews: String,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .height(24.dp)
+            .clip(RoundedCornerShape(bottomStart = 14.dp, topEnd = 18.dp))
+            .background(Color.White)
+            .padding(start = 8.dp, end = 7.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = "★",
+            color = Color(0xFFFFD642),
+            fontFamily = PoppinsRegularFont,
+            fontSize = 14.sp,
+            lineHeight = 14.sp,
+            fontWeight = FontWeight.Normal,
+            maxLines = 1,
+        )
+        Text(
+            text = "$rating ($reviews)",
+            color = Color(0xFF6E7478),
+            style = MaterialTheme.typography.labelMedium,
+            fontFamily = PoppinsRegularFont,
+            fontSize = 11.sp,
+            lineHeight = 12.sp,
+            fontWeight = FontWeight.Normal,
+            maxLines = 1,
+        )
+    }
+}
+
+@Composable
+private fun CouponScallopBottomEdge(
+    modifier: Modifier = Modifier,
+) {
+    Canvas(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(24.dp),
+    ) {
+        val cornerRadius = 18.dp.toPx()
+        val notchRadius = 5.dp.toPx()
+        val notchDiameter = notchRadius * 2f
+        val notchGap = 6.dp.toPx()
+        val horizontalInset = 24.dp.toPx()
+        val path = Path()
+
+        path.moveTo(0f, size.height)
+        path.lineTo(0f, cornerRadius)
+        path.quadraticBezierTo(0f, 0f, cornerRadius, 0f)
+
+        var x = horizontalInset
+        val scallopEnd = size.width - horizontalInset
+        while (x + notchDiameter <= scallopEnd) {
+            path.lineTo(x, 0f)
+            path.cubicTo(
+                x,
+                notchRadius * 1.1f,
+                x + notchDiameter,
+                notchRadius * 1.1f,
+                x + notchDiameter,
+                0f,
+            )
+            x += notchDiameter + notchGap
+        }
+
+        path.lineTo(size.width - cornerRadius, 0f)
+        path.quadraticBezierTo(size.width, 0f, size.width, cornerRadius)
+        path.lineTo(size.width, size.height)
+        path.close()
+
+        drawPath(path = path, color = Color.White)
+    }
+}
+
+@Composable
+private fun SaleTile(
+    imageRes: Int,
+    contentDescription: String,
+    modifier: Modifier = Modifier,
+) {
+    Image(
+        painter = painterResource(id = imageRes),
+        contentDescription = contentDescription,
+        modifier = modifier
+            .aspectRatio(1f)
+            .clip(RoundedCornerShape(10.dp)),
+        contentScale = ContentScale.Crop,
+    )
 }
 
 @Composable
@@ -240,9 +515,10 @@ private fun HomeSectionHeader(
     subtitle: String? = null,
     actionLabel: String? = null,
     onAction: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.Bottom,
     ) {
@@ -252,9 +528,11 @@ private fun HomeSectionHeader(
         ) {
             Text(
                 text = title,
-                fontSize = 20.sp,
-                lineHeight = 25.sp,
-                fontWeight = FontWeight.SemiBold,
+                fontFamily = HomeMajorHeadingFont,
+                fontSize = 22.sp,
+                lineHeight = 26.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.35.sp,
                 color = HomeText,
             )
             if (subtitle != null) {

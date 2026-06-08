@@ -1,12 +1,14 @@
 package com.sevam.features.profile.presentation
 
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,44 +16,57 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AccountCircle
-import androidx.compose.material.icons.outlined.Badge
+import androidx.compose.material.icons.outlined.AccountBalanceWallet
+import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.CardGiftcard
 import androidx.compose.material.icons.outlined.ChevronRight
-import androidx.compose.material.icons.outlined.CreditCard
+import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.Email
+import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.FavoriteBorder
-import androidx.compose.material.icons.outlined.Female
-import androidx.compose.material.icons.outlined.HelpOutline
-import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.IosShare
 import androidx.compose.material.icons.outlined.LocalOffer
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Logout
-import androidx.compose.material.icons.outlined.Payments
-import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.MenuBook
+import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.Phone
 import androidx.compose.material.icons.outlined.ReceiptLong
-import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.Verified
+import androidx.compose.material.icons.outlined.RadioButtonUnchecked
+import androidx.compose.material.icons.outlined.ToggleOff
+import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -60,9 +75,7 @@ import androidx.compose.ui.unit.sp
 import com.sevam.core.common.model.Address
 import com.sevam.core.common.model.PaymentMethod
 import com.sevam.core.common.model.UserProfile
-import com.sevam.core.ui.SevamColors
-import com.sevam.core.ui.SevamPrimaryButton
-import com.sevam.core.ui.SevamSecondaryButton
+import com.sevam.features.profile.R
 
 enum class ProfileSection {
     PERSONAL,
@@ -71,13 +84,26 @@ enum class ProfileSection {
     SECURITY,
 }
 
-private val ProfileBlue = Color(0xFF174A9C)
-private val ProfileBlueDark = Color(0xFF0D2F68)
-private val ProfileBlueSoft = Color(0xFFEAF2FF)
-private val ProfileText = Color(0xFF111827)
-private val ProfileMuted = Color(0xFF667085)
-private val ProfileSurface = Color.White
-private val ProfileBorder = Color(0xFFE8EEF8)
+private val ProfileBlueTop = Color(0xFF0D57D7)
+private val ProfileBlueMid = Color(0xFF1268F2)
+private val ProfilePageBg = Color(0xFFF5F5F7)
+private val ProfileCard = Color.White
+private val ProfileText = Color(0xFF333333)
+private val ProfileMuted = Color(0xFF737780)
+private val ProfileDivider = Color(0xFFF0F0F2)
+private val ProfileBlue = Color(0xFF1268F2)
+private val ProfileChevron = Color(0xFFB9BCC3)
+private val ProfileRadius = RoundedCornerShape(20.dp)
+private val ProfileFont = FontFamily(
+    Font(R.font.poppins_regular, FontWeight.Normal),
+    Font(R.font.poppins_semibold, FontWeight.SemiBold),
+)
+
+private data class ProfileMenuRow(
+    val title: String,
+    val icon: ImageVector,
+    val onClick: (() -> Unit)? = null,
+)
 
 @Composable
 fun ProfileScreen(
@@ -91,578 +117,838 @@ fun ProfileScreen(
     onEditAddress: (String) -> Unit,
     onDeleteAddress: (String) -> Unit,
     onLogout: () -> Unit,
+    onEditProfile: () -> Unit,
+    onBack: () -> Unit = {},
 ) {
-    LazyColumn(
+    val listState = rememberLazyListState()
+    var showLogoutDialog by remember { mutableStateOf(false) }
+    val showPinnedToolbar by remember {
+        derivedStateOf {
+            listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 390
+        }
+    }
+
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
-        contentPadding = PaddingValues(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 28.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp),
+            .background(ProfilePageBg),
     ) {
-        item {
-            ProfileHeaderCard(
-                profile = profile,
-            )
-        }
-        item {
-            QuickActionsGrid(onSectionSelected = onSectionSelected)
-        }
-        if (selectedSection != ProfileSection.PERSONAL) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+        ) {
             item {
-                AccountSectionTitle(
-                    title = when (selectedSection) {
-                        ProfileSection.PERSONAL -> "Personal Information"
-                        ProfileSection.ADDRESSES -> "Saved Addresses"
-                        ProfileSection.PAYMENTS -> "Payment Methods"
-                        ProfileSection.SECURITY -> "Security"
-                    },
-                    subtitle = when (selectedSection) {
-                        ProfileSection.PERSONAL -> "Your contact details and profile basics"
-                        ProfileSection.ADDRESSES -> "Manage service locations for faster bookings"
-                        ProfileSection.PAYMENTS -> "Saved UPI and card options"
-                        ProfileSection.SECURITY -> "Login and account protection"
-                    },
+                ProfileHero(
+                    name = "Agastya",
+                    phoneNumber = "6398317816",
+                    dateOfBirth = "25 Apr 2006",
+                    onBack = onBack,
+                    onEditProfile = onEditProfile,
+                )
+            }
+            item {
+                ProfileContent(
+                    onLogout = { showLogoutDialog = true },
+                    onSectionSelected = onSectionSelected,
                 )
             }
         }
-        when (selectedSection) {
-            ProfileSection.PERSONAL -> {
-                item { ReferralCard(referralCode = profile.referralCode) }
-            }
 
-            ProfileSection.ADDRESSES -> {
-                items(addresses, key = { it.id }) { address ->
-                    AddressCard(
-                        address = address,
-                        onSetDefault = { onSetDefaultAddress(address.id) },
-                        onEdit = { onEditAddress(address.id) },
-                        onDelete = { onDeleteAddress(address.id) },
-                    )
-                }
-                item {
-                    SevamPrimaryButton(
-                        text = "Add New Address",
-                        modifier = Modifier.fillMaxWidth(),
-                        onClick = onAddAddress,
-                    )
-                }
-            }
-
-            ProfileSection.PAYMENTS -> {
-                items(paymentMethods.filterNot { it.id.equals("wallet", ignoreCase = true) }, key = { it.id }) { method ->
-                    PaymentMethodCard(method)
-                }
-            }
-
-            ProfileSection.SECURITY -> {
-                item { SecurityCard() }
-            }
+        AnimatedVisibility(
+            visible = showPinnedToolbar,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier.align(Alignment.TopCenter),
+        ) {
+            ProfilePinnedToolbar(onBack = onBack)
         }
-        item {
-            AccountSettingsList(onSectionSelected = onSectionSelected)
-        }
-        item {
-            SignOutButton(onLogout = onLogout)
+
+        if (showLogoutDialog) {
+            LogoutDialog(
+                onCurrentDevice = {
+                    showLogoutDialog = false
+                    onLogout()
+                },
+                onAllDevices = {
+                    showLogoutDialog = false
+                    onLogout()
+                },
+                onCancel = { showLogoutDialog = false },
+            )
         }
     }
 }
 
 @Composable
-private fun ProfileHeaderCard(
-    profile: UserProfile,
+fun EditProfileScreen(
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .shadow(8.dp, RoundedCornerShape(26.dp), clip = false),
-        shape = RoundedCornerShape(26.dp),
-        color = ProfileBlueDark,
+    var firstName by remember { mutableStateOf("Agastya") }
+    var lastName by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(ProfilePageBg),
     ) {
-        Box(
-            modifier = Modifier
-                .background(
-                    Brush.linearGradient(
-                        listOf(ProfileBlueDark, ProfileBlue, Color(0xFF286CD8)),
-                    ),
-                )
-                .padding(18.dp),
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(102.dp),
+                color = Color.White,
+            ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(start = 30.dp, top = 14.dp, end = 24.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Surface(
-                        modifier = Modifier.size(62.dp),
-                        shape = CircleShape,
-                        color = Color.White,
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text(
-                                text = profile.name.take(1).uppercase(),
-                                color = ProfileBlue,
-                                fontSize = 28.sp,
-                                fontWeight = FontWeight.Bold,
-                            )
-                        }
-                    }
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(3.dp),
-                    ) {
-                        Text(
-                            text = profile.name,
-                            color = Color.White,
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Text(
-                            text = profile.email.ifBlank { profile.phoneNumber },
-                            color = Color.White.copy(alpha = 0.86f),
-                            style = MaterialTheme.typography.bodyMedium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Text(
-                            text = "Member since ${profile.memberSince}",
-                            color = Color.White.copy(alpha = 0.7f),
-                            style = MaterialTheme.typography.labelMedium,
-                            maxLines = 1,
-                        )
-                    }
-                    Surface(
-                        modifier = Modifier.clickable(onClick = {}),
-                        shape = CircleShape,
-                        color = Color.White.copy(alpha = 0.16f),
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.22f)),
-                    ) {
-                        Box(
-                            modifier = Modifier.size(42.dp),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.Edit,
-                                contentDescription = "Edit profile",
-                                tint = Color.White,
-                                modifier = Modifier.size(19.dp),
-                            )
-                        }
-                    }
+                    Icon(
+                        imageVector = Icons.Outlined.ArrowBack,
+                        contentDescription = "Back",
+                        tint = Color(0xFF222222),
+                        modifier = Modifier
+                            .size(30.dp)
+                            .clickable(onClick = onBack),
+                    )
+                    Spacer(modifier = Modifier.width(34.dp))
+                    Text(
+                        text = "Profile details",
+                        color = ProfileText,
+                        fontFamily = ProfileFont,
+                        fontSize = 24.sp,
+                        lineHeight = 30.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
                 }
+            }
+
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 20.dp, top = 12.dp, end = 20.dp),
+                shape = RoundedCornerShape(18.dp),
+                color = Color.White,
+            ) {
+                Column(
+                    modifier = Modifier.padding(start = 20.dp, top = 16.dp, end = 20.dp, bottom = 94.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Box(
+                        modifier = Modifier.size(152.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.profile),
+                            contentDescription = "Profile image",
+                            modifier = Modifier
+                                .size(144.dp)
+                                .clip(CircleShape),
+                            contentScale = ContentScale.Fit,
+                        )
+                        Surface(
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(end = 18.dp, bottom = 12.dp)
+                                .size(38.dp),
+                            shape = CircleShape,
+                            color = Color(0xFFE0F1FF),
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Edit,
+                                    contentDescription = null,
+                                    tint = ProfileBlue,
+                                    modifier = Modifier.size(21.dp),
+                                )
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    ProfileInputField(
+                        label = "First Name",
+                        value = firstName,
+                        onValueChange = { firstName = it },
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    ProfileInputField(
+                        label = "Last Name",
+                        value = lastName,
+                        placeholder = "Last Name",
+                        onValueChange = { lastName = it },
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    ProfileInputField(
+                        label = "Mobile",
+                        value = "6398317816",
+                        onValueChange = {},
+                        enabled = false,
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    ProfileInputField(
+                        label = "Email",
+                        value = email,
+                        placeholder = "Email",
+                        onValueChange = { email = it },
+                    )
+                }
+            }
+        }
+
+        Surface(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .padding(start = 20.dp, end = 20.dp, bottom = 30.dp)
+                .height(66.dp)
+                .clickable { },
+            shape = RoundedCornerShape(16.dp),
+            color = ProfileBlue,
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text(
+                    text = "Update profile",
+                    color = Color.White,
+                    fontFamily = ProfileFont,
+                    fontSize = 21.sp,
+                    lineHeight = 26.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
             }
         }
     }
 }
 
 @Composable
-private fun StatusPill(
-    icon: ImageVector,
-    text: String,
-) {
-    Surface(
-        shape = RoundedCornerShape(999.dp),
-        color = Color.White.copy(alpha = 0.12f),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.16f)),
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(15.dp),
-            )
-            Text(
-                text = text,
-                color = Color.White,
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-            )
-        }
-    }
-}
-
-@Composable
-private fun QuickActionsGrid(onSectionSelected: (ProfileSection) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            QuickActionCard(
-                label = "My Bookings",
-                icon = Icons.Outlined.ReceiptLong,
-                modifier = Modifier.weight(1f),
-                onClick = {},
-            )
-            QuickActionCard(
-                label = "Addresses",
-                icon = Icons.Outlined.LocationOn,
-                modifier = Modifier.weight(1f),
-                onClick = { onSectionSelected(ProfileSection.ADDRESSES) },
-            )
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            QuickActionCard(
-                label = "Payments",
-                icon = Icons.Outlined.CreditCard,
-                modifier = Modifier.weight(1f),
-                onClick = { onSectionSelected(ProfileSection.PAYMENTS) },
-            )
-            QuickActionCard(
-                label = "Help & Support",
-                icon = Icons.Outlined.HelpOutline,
-                modifier = Modifier.weight(1f),
-                onClick = {},
-            )
-        }
-    }
-}
-
-@Composable
-private fun QuickActionCard(
+private fun ProfileInputField(
     label: String,
-    icon: ImageVector,
+    value: String,
+    onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier,
-    onClick: () -> Unit,
+    placeholder: String = "",
+    enabled: Boolean = true,
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = modifier
+            .fillMaxWidth()
+            .height(62.dp),
+        enabled = enabled,
+        singleLine = true,
+        label = {
+            Text(
+                text = label,
+                fontFamily = ProfileFont,
+                fontSize = 14.sp,
+                lineHeight = 18.sp,
+            )
+        },
+        placeholder = {
+            Text(
+                text = placeholder,
+                color = Color(0xFFB5B5B5),
+                fontFamily = ProfileFont,
+                fontSize = 16.sp,
+                lineHeight = 20.sp,
+            )
+        },
+        textStyle = androidx.compose.ui.text.TextStyle(
+            color = if (enabled) ProfileText else Color(0xFF8E8E8E),
+            fontFamily = ProfileFont,
+            fontSize = 16.sp,
+            lineHeight = 20.sp,
+            fontWeight = FontWeight.Medium,
+        ),
+        shape = RoundedCornerShape(14.dp),
+    )
+}
+
+@Composable
+private fun ProfileHero(
+    name: String,
+    phoneNumber: String,
+    dateOfBirth: String,
+    onBack: () -> Unit,
+    onEditProfile: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(360.dp)
+            .background(
+                Brush.verticalGradient(
+                    0f to ProfileBlueTop,
+                    0.48f to ProfileBlueMid,
+                    0.82f to Color(0xFFEAF2FF),
+                    1f to ProfilePageBg,
+                ),
+            ),
+    ) {
+        Surface(
+            modifier = Modifier
+                .padding(start = 18.dp, top = 28.dp)
+                .size(36.dp)
+                .shadow(3.dp, CircleShape, clip = false)
+                .clickable(onClick = onBack),
+            shape = CircleShape,
+            color = Color.White.copy(alpha = 0.95f),
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = Icons.Outlined.ArrowBack,
+                    contentDescription = "Back",
+                    tint = Color(0xFF252525),
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+        }
+
+        Column(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 58.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.profile),
+                contentDescription = "Profile image",
+                modifier = Modifier
+                    .size(86.dp)
+                    .clip(CircleShape),
+                contentScale = ContentScale.Fit,
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = name,
+                color = Color.White,
+                fontFamily = ProfileFont,
+                fontSize = 24.sp,
+                lineHeight = 28.sp,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 0.sp,
+            )
+            Spacer(modifier = Modifier.height(5.dp))
+            Row(
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Phone,
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.84f),
+                    modifier = Modifier.size(14.dp),
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = phoneNumber,
+                    color = Color.White.copy(alpha = 0.84f),
+                    fontFamily = ProfileFont,
+                    fontSize = 13.sp,
+                    lineHeight = 17.sp,
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Icon(
+                    imageVector = Icons.Outlined.CalendarMonth,
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.84f),
+                    modifier = Modifier.size(14.dp),
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = dateOfBirth,
+                    color = Color.White.copy(alpha = 0.84f),
+                    fontFamily = ProfileFont,
+                    fontSize = 13.sp,
+                    lineHeight = 17.sp,
+                )
+            }
+            Spacer(modifier = Modifier.height(7.dp))
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(50))
+                    .clickable(onClick = onEditProfile)
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Edit,
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.9f),
+                    modifier = Modifier.size(13.dp),
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "Edit profile",
+                    color = Color.White.copy(alpha = 0.9f),
+                    fontFamily = ProfileFont,
+                    fontSize = 12.sp,
+                    lineHeight = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                )
+            }
+        }
+
+        Row(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .padding(start = 12.dp, end = 12.dp, bottom = 0.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            ProfileActionCard(
+                iconRes = R.drawable.profilebookings,
+                title = "Your orders",
+                modifier = Modifier.weight(1f),
+            )
+            ProfileActionCard(
+                iconRes = R.drawable.profilewallet,
+                title = "Blinkit\nMoney",
+                modifier = Modifier.weight(1f),
+            )
+            ProfileActionCard(
+                iconRes = R.drawable.profilehelp,
+                title = "Need help?",
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProfileContent(
+    onLogout: () -> Unit,
+    onSectionSelected: (ProfileSection) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(ProfilePageBg)
+            .padding(start = 14.dp, top = 12.dp, end = 14.dp, bottom = 88.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        AppearanceCard()
+        ProfileRowsCard(
+            title = "Your information",
+            rows = listOf(
+                ProfileMenuRow("Address book", Icons.Outlined.LocationOn) {
+                    onSectionSelected(ProfileSection.ADDRESSES)
+                },
+                ProfileMenuRow("Bookmarked recipes", Icons.Outlined.MenuBook),
+                ProfileMenuRow("Your wishlist", Icons.Outlined.FavoriteBorder),
+                ProfileMenuRow("GST details", Icons.Outlined.ReceiptLong),
+                ProfileMenuRow("E-gift cards", Icons.Outlined.CardGiftcard),
+                ProfileMenuRow("Claim Gift card", Icons.Outlined.LocalOffer),
+                ProfileMenuRow("Your collected rewards", Icons.Outlined.AccountBalanceWallet),
+            ),
+        )
+        ProfileRowsCard(
+            title = "Other Information",
+            rows = listOf(
+                ProfileMenuRow("Share the app", Icons.Outlined.IosShare),
+                ProfileMenuRow("About us", Icons.Outlined.Info),
+                ProfileMenuRow("Account privacy", Icons.Outlined.Lock),
+                ProfileMenuRow("Notification preferences", Icons.Outlined.NotificationsNone),
+                ProfileMenuRow("Log out", Icons.Outlined.Logout, onClick = onLogout),
+            ),
+        )
+        ProfileFooter()
+    }
+}
+
+@Composable
+private fun ProfileActionCard(
+    iconRes: Int,
+    title: String,
+    modifier: Modifier = Modifier,
 ) {
     Surface(
         modifier = modifier
-            .height(82.dp)
-            .shadow(3.dp, RoundedCornerShape(20.dp), clip = false)
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(20.dp),
-        color = ProfileSurface,
-        border = BorderStroke(1.dp, ProfileBorder),
+            .height(96.dp)
+            .shadow(1.dp, ProfileRadius, clip = false),
+        shape = ProfileRadius,
+        color = ProfileCard,
     ) {
         Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
         ) {
-            Surface(
-                shape = RoundedCornerShape(14.dp),
-                color = ProfileBlueSoft,
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = ProfileBlue,
-                    modifier = Modifier
-                        .padding(8.dp)
-                        .size(19.dp),
-                )
-            }
+            Image(
+                painter = painterResource(id = iconRes),
+                contentDescription = null,
+                modifier = Modifier.size(30.dp),
+                contentScale = ContentScale.Fit,
+            )
+            Spacer(modifier = Modifier.height(7.dp))
             Text(
-                text = label,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.SemiBold,
+                text = title,
                 color = ProfileText,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+                fontFamily = ProfileFont,
+                fontSize = 14.sp,
+                lineHeight = 17.sp,
+                fontWeight = FontWeight.Medium,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
             )
         }
     }
 }
 
 @Composable
-private fun AccountSectionTitle(
-    title: String,
-    subtitle: String,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.SemiBold,
-            color = ProfileText,
-        )
-        Text(
-            text = subtitle,
-            style = MaterialTheme.typography.bodyMedium,
-            color = ProfileMuted,
-        )
-    }
-}
+private fun AppearanceCard() {
+    var expanded by remember { mutableStateOf(false) }
 
-@Composable
-private fun ReferralCard(referralCode: String) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(5.dp, RoundedCornerShape(24.dp), clip = false),
-        shape = RoundedCornerShape(24.dp),
-        color = ProfileBlue,
+            .shadow(1.dp, ProfileRadius, clip = false),
+        shape = ProfileRadius,
+        color = ProfileCard,
     ) {
-        Box(
-            modifier = Modifier
-                .background(
-                    Brush.linearGradient(
-                        listOf(ProfileBlueDark, ProfileBlue, Color(0xFF2B6EDB)),
-                    ),
-                )
-                .padding(18.dp),
-        ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
             Row(
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(58.dp)
+                    .clickable { expanded = !expanded }
+                    .padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Surface(
-                    modifier = Modifier.size(46.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    color = Color.White.copy(alpha = 0.14f),
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Outlined.LocalOffer,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(23.dp),
-                        )
-                    }
+                if (!expanded) {
+                    Icon(
+                        imageVector = Icons.Outlined.WbSunny,
+                        contentDescription = null,
+                        tint = Color(0xFF333333),
+                        modifier = Modifier.size(22.dp),
+                    )
+                    Spacer(modifier = Modifier.width(14.dp))
                 }
-                Column(
+                Text(
+                    text = "Appearance",
+                    color = ProfileText,
+                    fontFamily = ProfileFont,
+                    fontSize = 16.sp,
+                    lineHeight = 20.sp,
+                    fontWeight = FontWeight.Medium,
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
+                )
+                if (!expanded) {
                     Text(
-                        text = "Refer & Earn",
-                        color = Color.White,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
+                        text = "LIGHT",
+                        color = Color(0xFF25264A),
+                        fontFamily = ProfileFont,
+                        fontSize = 13.sp,
+                        lineHeight = 16.sp,
                     )
-                    Text(
-                        text = "Share your code and earn Rs 100 per successful referral.",
-                        color = Color.White.copy(alpha = 0.82f),
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Surface(
-                            shape = RoundedCornerShape(999.dp),
-                            color = Color.White.copy(alpha = 0.14f),
-                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)),
-                        ) {
-                            Text(
-                                text = referralCode,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                color = Color.White,
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Bold,
-                            )
-                        }
-                        Surface(
-                            shape = RoundedCornerShape(999.dp),
-                            color = Color.White,
-                        ) {
-                            Text(
-                                text = "Share Code",
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                color = ProfileBlue,
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.SemiBold,
-                            )
-                        }
-                    }
+                    Spacer(modifier = Modifier.width(6.dp))
                 }
+                Icon(
+                    imageVector = Icons.Outlined.ExpandMore,
+                    contentDescription = null,
+                    tint = ProfileChevron,
+                    modifier = Modifier
+                        .size(20.dp)
+                        .graphicsLayer(rotationZ = if (expanded) 180f else 0f),
+                )
+            }
+
+            if (expanded) {
+                ProfileDividerLine(modifier = Modifier.padding(horizontal = 16.dp))
+                AppearanceOptionRow(
+                    icon = Icons.Outlined.WbSunny,
+                    title = "Light Theme",
+                    selected = true,
+                )
+                ProfileDividerLine(modifier = Modifier.padding(start = 16.dp))
+                AppearanceOptionRow(
+                    icon = Icons.Outlined.DarkMode,
+                    title = "Dark Theme",
+                    selected = false,
+                )
+                ProfileDividerLine(modifier = Modifier.padding(start = 16.dp))
+                AppearanceOptionRow(
+                    icon = Icons.Outlined.ToggleOff,
+                    title = "System Theme",
+                    selected = false,
+                )
             }
         }
     }
 }
 
 @Composable
-private fun AccountSettingsList(onSectionSelected: (ProfileSection) -> Unit) {
-    PremiumProfileCard {
-        Column {
-            Text(
-                text = "Account & Settings",
-                modifier = Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 6.dp),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = ProfileText,
-            )
-            SettingsRow(Icons.Outlined.Home, "Manage Addresses", "Home, office and other locations", onClick = { onSectionSelected(ProfileSection.ADDRESSES) })
-            ProfileDivider()
-            SettingsRow(Icons.Outlined.Payments, "Manage Payment Methods", "UPI and cards", onClick = { onSectionSelected(ProfileSection.PAYMENTS) })
-            ProfileDivider()
-            SettingsRow(Icons.Outlined.Lock, "Security", "Login and session controls", onClick = { onSectionSelected(ProfileSection.SECURITY) })
-            ProfileDivider()
-            SettingsRow(Icons.Outlined.Settings, "Settings", "Preferences and notifications", onClick = {})
-        }
-    }
-}
-
-@Composable
-private fun SettingsRow(
+private fun AppearanceOptionRow(
     icon: ImageVector,
     title: String,
-    subtitle: String,
-    onClick: () -> Unit,
+    selected: Boolean,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 13.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+            .height(60.dp)
+            .padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Surface(
-            modifier = Modifier.size(38.dp),
-            shape = RoundedCornerShape(13.dp),
-            color = ProfileBlueSoft,
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = Color(0xFF303236),
+            modifier = Modifier.size(22.dp),
+        )
+        Spacer(modifier = Modifier.width(14.dp))
+        Text(
+            text = title,
+            color = ProfileText,
+            fontFamily = ProfileFont,
+            fontSize = 15.sp,
+            lineHeight = 19.sp,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.weight(1f),
+        )
+        Box(
+            modifier = Modifier.size(28.dp),
+            contentAlignment = Alignment.Center,
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = ProfileBlue,
-                    modifier = Modifier.size(18.dp),
+            Icon(
+                imageVector = Icons.Outlined.RadioButtonUnchecked,
+                contentDescription = null,
+                tint = ProfileBlue,
+                modifier = Modifier.size(26.dp),
+            )
+            if (selected) {
+                Box(
+                    modifier = Modifier
+                        .size(14.dp)
+                        .clip(CircleShape)
+                        .background(ProfileBlue),
                 )
             }
         }
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(2.dp),
-        ) {
+    }
+}
+
+@Composable
+private fun ProfileRowsCard(
+    title: String,
+    rows: List<ProfileMenuRow>,
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(1.dp, ProfileRadius, clip = false),
+        shape = ProfileRadius,
+        color = ProfileCard,
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
                 color = ProfileText,
+                fontFamily = ProfileFont,
+                fontSize = 18.sp,
+                lineHeight = 23.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 10.dp),
             )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.labelMedium,
-                color = ProfileMuted,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            ProfileDividerLine()
+            rows.forEachIndexed { index, row ->
+                ProfileSettingsRow(row = row)
+                if (index != rows.lastIndex) {
+                    ProfileDividerLine(modifier = Modifier.padding(start = 16.dp))
+                }
+            }
         }
+    }
+}
+
+@Composable
+private fun ProfileSettingsRow(
+    row: ProfileMenuRow,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(54.dp)
+            .clickable(enabled = row.onClick != null) { row.onClick?.invoke() }
+            .padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = row.icon,
+            contentDescription = null,
+            tint = Color(0xFF303236),
+            modifier = Modifier.size(22.dp),
+        )
+        Spacer(modifier = Modifier.width(14.dp))
+        Text(
+            text = row.title,
+            color = ProfileText,
+            fontFamily = ProfileFont,
+            fontSize = 15.sp,
+            lineHeight = 19.sp,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.weight(1f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
         Icon(
             imageVector = Icons.Outlined.ChevronRight,
             contentDescription = null,
-            tint = Color(0xFF98A2B3),
+            tint = ProfileChevron,
             modifier = Modifier.size(20.dp),
         )
     }
 }
 
 @Composable
-private fun SignOutButton(onLogout: () -> Unit) {
-    Surface(
+private fun LogoutDialog(
+    onCurrentDevice: () -> Unit,
+    onAllDevices: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    Dialog(onDismissRequest = onCancel) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp),
+            color = Color.White,
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    text = "Log out from?",
+                    color = ProfileText,
+                    fontFamily = ProfileFont,
+                    fontSize = 26.sp,
+                    lineHeight = 32.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(top = 26.dp, bottom = 24.dp),
+                )
+                ProfileDividerLine()
+                LogoutOption(text = "Current Device", onClick = onCurrentDevice)
+                ProfileDividerLine()
+                LogoutOption(text = "All Devices", onClick = onAllDevices)
+                ProfileDividerLine()
+                LogoutOption(text = "Cancel", onClick = onCancel)
+            }
+        }
+    }
+}
+
+@Composable
+private fun LogoutOption(
+    text: String,
+    onClick: () -> Unit,
+) {
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onLogout),
-        shape = RoundedCornerShape(18.dp),
-        color = Color.White,
-        border = BorderStroke(1.dp, Color(0xFFFFD4D4)),
+            .height(58.dp)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.Logout,
-                contentDescription = null,
-                tint = Color(0xFFE5484D),
-                modifier = Modifier.size(18.dp),
-            )
-            Spacer(modifier = Modifier.size(8.dp))
-            Text(
-                text = "Sign out",
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFFE5484D),
-                fontWeight = FontWeight.SemiBold,
-            )
-        }
+        Text(
+            text = text,
+            color = ProfileBlue,
+            fontFamily = ProfileFont,
+            fontSize = 19.sp,
+            lineHeight = 24.sp,
+            fontWeight = FontWeight.Medium,
+        )
     }
 }
 
 @Composable
-private fun AddressCard(
-    address: Address,
-    onSetDefault: () -> Unit,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit,
-) {
-    PremiumProfileCard {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(address.label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                if (address.isDefault) {
-                    Text("Default", color = SevamColors.Success, style = MaterialTheme.typography.labelLarge)
-                }
-            }
-            Text("${address.line1}, ${address.line2}", style = MaterialTheme.typography.bodyMedium, color = ProfileMuted)
-            Text(address.city, style = MaterialTheme.typography.bodySmall, color = ProfileMuted)
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (!address.isDefault) {
-                    SevamSecondaryButton(text = "Set Default", modifier = Modifier.weight(1f), onClick = onSetDefault)
-                }
-                SevamSecondaryButton(text = "Edit", modifier = Modifier.weight(1f), onClick = onEdit)
-            }
-            SevamSecondaryButton(text = "Delete", modifier = Modifier.fillMaxWidth(), onClick = onDelete)
-        }
+private fun ProfileFooter() {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 54.dp, bottom = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = "sevam",
+            color = Color(0xFFBFC1C7),
+            fontFamily = ProfileFont,
+            fontSize = 30.sp,
+            lineHeight = 34.sp,
+            fontWeight = FontWeight.Bold,
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = "v1.0.0",
+            color = Color(0xFFB2B4BB),
+            fontFamily = ProfileFont,
+            fontSize = 13.sp,
+            lineHeight = 17.sp,
+        )
     }
 }
 
 @Composable
-private fun PaymentMethodCard(method: PaymentMethod) {
-    PremiumProfileCard {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(method.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Text(method.subtitle, style = MaterialTheme.typography.bodySmall, color = ProfileMuted)
-            if (!method.isLive) {
-                Text("Available soon for live payments.", style = MaterialTheme.typography.bodySmall, color = SevamColors.Orange)
-            }
-        }
-    }
-}
-
-@Composable
-private fun SecurityCard() {
-    PremiumProfileCard {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("Security", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-            Text(
-                "Phone OTP is the live login path right now. Session tools and extra account controls are ready for the backend when needed.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = ProfileMuted,
-            )
-            SevamSecondaryButton(text = "Review Active Session", modifier = Modifier.fillMaxWidth(), onClick = {})
-        }
-    }
-}
-
-@Composable
-private fun PremiumProfileCard(
+private fun ProfileSimpleCard(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .shadow(4.dp, RoundedCornerShape(22.dp), clip = false),
-        shape = RoundedCornerShape(22.dp),
-        color = ProfileSurface,
-        border = BorderStroke(1.dp, ProfileBorder),
+            .shadow(1.dp, ProfileRadius, clip = false),
+        shape = ProfileRadius,
+        color = ProfileCard,
         content = content,
     )
 }
 
 @Composable
-private fun ProfileDivider() {
-    Box(
+private fun ProfilePinnedToolbar(onBack: () -> Unit) {
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
+            .height(82.dp)
+            .shadow(5.dp, RoundedCornerShape(0.dp), clip = false),
+        color = Color.White,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(start = 24.dp, top = 22.dp, end = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.ArrowBack,
+                contentDescription = "Back",
+                tint = Color(0xFF222222),
+                modifier = Modifier
+                    .size(30.dp)
+                    .clickable(onClick = onBack),
+            )
+            Spacer(modifier = Modifier.width(28.dp))
+            Text(
+            text = "Profile",
+            color = ProfileText,
+            fontFamily = ProfileFont,
+            fontSize = 16.sp,
+            lineHeight = 20.sp,
+                fontWeight = FontWeight.Medium,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProfileDividerLine(
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
             .height(1.dp)
-            .background(Color(0xFFF0F3F8)),
+            .background(ProfileDivider),
     )
 }

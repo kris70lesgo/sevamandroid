@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -32,6 +33,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -45,6 +50,7 @@ import com.sevam.core.common.model.Booking
 import com.sevam.core.common.model.BookingStage
 import com.sevam.core.ui.SevamColors
 import com.sevam.core.ui.SevamRemoteImage
+import kotlin.math.min
 
 private val BookingBlue = Color(0xFF174A9C)
 private val BookingBlueSoft = Color(0xFFEAF2FF)
@@ -64,7 +70,19 @@ fun BookingsScreen(
     onOpenTracking: (String) -> Unit,
     onRebook: (String) -> Unit,
     onOpenSupport: (String) -> Unit,
+    onScrollProgressChanged: (Float) -> Unit = {},
 ) {
+    val listState = rememberLazyListState()
+    val headerCollapseProgress by remember {
+        derivedStateOf {
+            val scrollDistance = if (listState.firstVisibleItemIndex > 0) {
+                360
+            } else {
+                listState.firstVisibleItemScrollOffset
+            }
+            min(scrollDistance / 360f, 1f)
+        }
+    }
     val bookings = when (selectedStage) {
         BookingStage.ACTIVE -> activeBookings
         BookingStage.UPCOMING -> upcomingBookings
@@ -76,7 +94,12 @@ fun BookingsScreen(
         BookingStage.PAST to pastBookings.size,
     )
 
+    LaunchedEffect(headerCollapseProgress) {
+        onScrollProgressChanged(headerCollapseProgress)
+    }
+
     LazyColumn(
+        state = listState,
         modifier = Modifier
             .fillMaxSize()
             .background(BookingBg),
